@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iancoleman/strcase"
 	"github.com/joho/godotenv"
 )
 
@@ -106,40 +107,77 @@ func main() {
 
 	for l := 0; l < len(table); l++ {
 		// fmt.Println(table[l])
-		var htmlString string
+		var reactFormString string
+
+		var bindOnChangeString string
+		var defaultStateString string
+		var funcOnChangeString string
+		var fieldString string
+
 		for n := 0; n < len(table[l].Field); n++ {
+			// Create JS
+			bindOnChangeString += "this.onChange" +
+				strcase.ToCamel(table[l].Field[n].Name) + " = this.onChange" +
+				strcase.ToCamel(table[l].Field[n].Name) + ".bind(this);\n"
+
+			defaultStateString += "" + table[l].Field[n].Name + ":'',\n"
+
+			funcOnChangeString += "onChange" + strcase.ToCamel(table[l].Field[n].Name) + "(e){\n" +
+				"this.setState({\n" +
+				table[l].Field[n].Name + ":e.target.value\n" +
+				"});\n" +
+				"}\n\n"
+
+			fieldString += table[l].Field[n].Name + ": this.state." + table[l].Field[n].Name + ",\n"
+
 			var err error
 			var formArrByte []byte
+			// if table[l].Field[n].DataType == "string" {
+			// if table[l].Field[n].Length > 50 {
+			// 	formArrByte, err = ioutil.ReadFile("templates/form_textarea.html")
+			// } else {
 			if table[l].Field[n].DataType == "string" {
-				if table[l].Field[n].Length > 50 {
-					formArrByte, err = ioutil.ReadFile("templates/form_textarea.html")
-				} else {
-					formArrByte, err = ioutil.ReadFile("templates/form_text.html")
-				}
-			} else if table[l].Field[n].DataType == "int" {
-				formArrByte, err = ioutil.ReadFile("templates/form_number.html")
-			} else if table[l].Field[n].DataType == "time.Time" {
-				formArrByte, err = ioutil.ReadFile("templates/form_datetimetz.html")
-			} else if table[l].Field[n].DataType == "bool" {
-				formArrByte, err = ioutil.ReadFile("templates/form_bool.html")
+				formArrByte, err = ioutil.ReadFile("templates/form_text.html")
 			}
+			// }
+			// } else if table[l].Field[n].DataType == "int" {
+			// 	formArrByte, err = ioutil.ReadFile("templates/form_number.html")
+			// } else if table[l].Field[n].DataType == "time.Time" {
+			// 	formArrByte, err = ioutil.ReadFile("templates/form_datetimetz.html")
+			// } else if table[l].Field[n].DataType == "bool" {
+			// 	formArrByte, err = ioutil.ReadFile("templates/form_bool.html")
+			// }
 			if err != nil {
 				checkErr(err)
 			}
 			formString := string(formArrByte)
-			htmlString += strings.Replace(formString, "[field]", table[l].Field[n].Name, -1)
+			reactFormString += strings.Replace(formString, "[field]", table[l].Field[n].Name, -1)
+			reactFormString = strings.Replace(reactFormString, "[fieldCamel]", strcase.ToCamel(table[l].Field[n].Name), -1)
 		}
+
+		// Create JS
+		addFileContent, err := ioutil.ReadFile("templates/Add")
+		if err != nil {
+			checkErr(err)
+		}
+		addFileContentString := string(addFileContent)
+		addFileContentString = strings.Replace(addFileContentString, "[bindOnChangeString]", bindOnChangeString, -1)
+		addFileContentString = strings.Replace(addFileContentString, "[defaultStateString]", defaultStateString, -1)
+		addFileContentString = strings.Replace(addFileContentString, "[funcOnChangeString]", funcOnChangeString, -1)
+		addFileContentString = strings.Replace(addFileContentString, "[fieldString]", fieldString, -1)
+		addFileContentString = strings.Replace(addFileContentString, "[reactFormString]", reactFormString, -1)
+
 		// write form
-		f, err := os.Create("result/" + table[l].Name + ".html")
+		f, err := os.Create("result/add_" + table[l].Name + ".js")
 		if err != nil {
 			log.Fatal("error create file", err)
 			return
 		}
 		defer f.Close()
 		w := bufio.NewWriter(f)
-		_, err = w.WriteString(htmlString)
+		_, err = w.WriteString(addFileContentString)
 		if err != nil {
-			log.Fatal("error write to "+table[l].Name+".html", err)
+			log.Fatal("error write to "+table[l].Name+".js", err)
 			return
 		}
 		w.Flush()

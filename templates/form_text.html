@@ -1,2 +1,10 @@
-<p>[field]</p>
-<input type="text" name="[field]" value="[field]">
+<div class="form-group">
+    <label for="[field]">[field]</label>
+    <input 
+        type="text" 
+        name="[field]" 
+        value="[field]"
+        value={this.state.[field]}
+        onChange={this.onChange[fieldCamel]} 
+    />
+</div>
