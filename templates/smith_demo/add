@@ -1,0 +1,48 @@
+import React, { Component } from 'react';
+import Axios from 'axios';
+import SuccessAlert from './SuccessAlert';
+import ErrorAlert from './ErrorAlert';
+
+export default class Add extends Component {
+    constructor(){
+        super();
+        [bindOnChangeString]
+        this.onSubmit = this.onSubmit.bind(this);
+
+        this.state = {
+            [defaultStateString]
+        }
+    }
+
+    [funcOnChangeString]
+
+    onSubmit(e){
+        e.preventDefault();
+        const fields = {
+            [fieldString]
+        }
+
+        Axios.post('http://localhost:8000/api/kategori/store', fields)
+        .then(res=>{
+            this.setState({alert_message:"success"});
+        }).catch(error=>{
+            this.setState({alert_message:"error"});
+        });
+    }
+
+    render() {
+        return (
+            <div>
+            <hr/>
+
+            {this.state.alert_message=="success"?<SuccessAlert/>:null}
+            {this.state.alert_message=="error"?<ErrorAlert/>:null}
+
+            <form onSubmit={this.onSubmit}>
+                [formString]
+                <button type="submit" className="btn btn-primary">Submit</button>
+                </form>
+            </div>
+        );
+    }
+}

@@ -35,6 +35,7 @@ var (
 	dbDriver  string
 	dbCred    string
 	template  string
+	err       error
 )
 
 func init() {
@@ -45,145 +46,51 @@ func init() {
 	}
 	dbDriver = os.Getenv("DB_DRIVER")
 	dbCred = os.Getenv("DB_CRED")
+	template = os.Getenv("TEMPLATE")
 	flag.Parse()
 	check()
 }
 
-func check() {
-	if *tableName == "" {
-		fmt.Println("Define -table params")
-		os.Exit(1)
-		return
-	}
-	if dbDriver == "" {
-		fmt.Println("Define db driver on env")
-		os.Exit(1)
-		return
-	}
-	if dbCred == "" {
-		fmt.Println("Define db cred on env")
-		os.Exit(1)
-		return
-	}
-	if template == "" {
-		fmt.Println("Define template on env")
-		os.Exit(1)
-		return
-	}
-}
-
 func main() {
-	os.MkdirAll("result", os.ModePerm)
-	cmd := `bee generate appcode -tables="` + *tableName + `" -driver=` + dbDriver + ` -conn="` + dbCred + `" -level=1`
+	// prepare folders and model
+	prepare()
+
+	// convert process to table and dbfield struct
+	table = convertToDBStruct()
+
+	// delete temporary models dir after generation and delete old result
 	exec.Command(
 		"sh",
 		"-c",
-		cmd).Output()
-	time.Sleep(2 * time.Second)
-	tableSplit := strings.Split(*tableName, ",")
-	for i := 0; i < len(tableSplit); i++ {
-		var tableTemp Table
-		tableTemp.Name = tableSplit[i]
-		modelByte, err := ioutil.ReadFile("models/" + tableSplit[i] + ".go")
-		if err != nil {
-			checkErr(err)
-			return
-		}
-		modelString := stringBetween(string(modelByte), "struct {\n", "\n}")
-		modelField := strings.Split(modelString, "\n")
-		var dbField []DBField
-		for j := 0; j < len(modelField); j++ {
-			dbField = append(dbField, convertStringToDBFieldStruct(modelField[j]))
-		}
-		tableTemp.Field = dbField
-		table = append(table, tableTemp)
-	}
+		"rm -rf models/ && rm -rf result/").Output()
 
+	// loop through inputted table
 	for l := 0; l < len(table); l++ {
-		// fmt.Println(table[l])
-		var reactFormString string
+		var bindOnChangeString, defaultStateString, funcOnChangeString, fieldString, formString string
 
-		var bindOnChangeString string
-		var defaultStateString string
-		var funcOnChangeString string
-		var fieldString string
-
+		// loop through fields to generate needed things in js file
 		for n := 0; n < len(table[l].Field); n++ {
-			// Create JS
-			bindOnChangeString += "this.onChange" +
-				strcase.ToCamel(table[l].Field[n].Name) + " = this.onChange" +
-				strcase.ToCamel(table[l].Field[n].Name) + ".bind(this);\n"
-
-			defaultStateString += "" + table[l].Field[n].Name + ":'',\n"
-
-			funcOnChangeString += "onChange" + strcase.ToCamel(table[l].Field[n].Name) + "(e){\n" +
-				"this.setState({\n" +
-				table[l].Field[n].Name + ":e.target.value\n" +
-				"});\n" +
-				"}\n\n"
-
-			fieldString += table[l].Field[n].Name + ": this.state." + table[l].Field[n].Name + ",\n"
-
-			var err error
-			var formArrByte []byte
-			// if table[l].Field[n].DataType == "string" {
-			// if table[l].Field[n].Length > 50 {
-			// 	formArrByte, err = ioutil.ReadFile("templates/form_textarea.html")
-			// } else {
-			if table[l].Field[n].DataType == "string" {
-				formArrByte, err = ioutil.ReadFile("templates/form_text.html")
-			}
-			// }
-			// } else if table[l].Field[n].DataType == "int" {
-			// 	formArrByte, err = ioutil.ReadFile("templates/form_number.html")
-			// } else if table[l].Field[n].DataType == "time.Time" {
-			// 	formArrByte, err = ioutil.ReadFile("templates/form_datetimetz.html")
-			// } else if table[l].Field[n].DataType == "bool" {
-			// 	formArrByte, err = ioutil.ReadFile("templates/form_bool.html")
-			// }
-			if err != nil {
-				checkErr(err)
-			}
-			formString := string(formArrByte)
-			reactFormString += strings.Replace(formString, "[field]", table[l].Field[n].Name, -1)
-			reactFormString = strings.Replace(reactFormString, "[fieldCamel]", strcase.ToCamel(table[l].Field[n].Name), -1)
+			bindOnChangeStringTemp, defaultStateStringTemp, funcOnChangeStringTemp, fieldStringTemp, formStringTemp := generateJSString(table[l].Field[n])
+			bindOnChangeString += bindOnChangeStringTemp
+			defaultStateString += defaultStateStringTemp
+			funcOnChangeString += funcOnChangeStringTemp
+			fieldString += fieldStringTemp
+			formString += formStringTemp
 		}
 
-		// Create JS
-		addFileContent, err := ioutil.ReadFile("templates/Add")
-		if err != nil {
-			checkErr(err)
-		}
-		addFileContentString := string(addFileContent)
-		addFileContentString = strings.Replace(addFileContentString, "[bindOnChangeString]", bindOnChangeString, -1)
-		addFileContentString = strings.Replace(addFileContentString, "[defaultStateString]", defaultStateString, -1)
-		addFileContentString = strings.Replace(addFileContentString, "[funcOnChangeString]", funcOnChangeString, -1)
-		addFileContentString = strings.Replace(addFileContentString, "[fieldString]", fieldString, -1)
-		addFileContentString = strings.Replace(addFileContentString, "[reactFormString]", reactFormString, -1)
-
-		// write form
-		f, err := os.Create("result/add_" + table[l].Name + ".js")
-		if err != nil {
-			log.Fatal("error create file", err)
-			return
-		}
-		defer f.Close()
-		w := bufio.NewWriter(f)
-		_, err = w.WriteString(addFileContentString)
-		if err != nil {
-			log.Fatal("error write to "+table[l].Name+".js", err)
-			return
-		}
-		w.Flush()
+		// write JS file
+		generateJSFile(
+			table[l].Name,
+			bindOnChangeString,
+			defaultStateString,
+			funcOnChangeString,
+			fieldString,
+			formString,
+		)
 	}
-
-	// delete model dir after generation
-	exec.Command(
-		"sh",
-		"-c",
-		"rm -rf models/").Output()
 }
 
+// HELPERS
 func checkErr(err error) {
 	if err != nil {
 		log.Fatal(err)
@@ -211,6 +118,66 @@ func standardizeSpaces(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
+// HELPERS
+
+// CORE FUNC
+func check() {
+	if *tableName == "" {
+		fmt.Println("Define -table params")
+		os.Exit(1)
+		return
+	}
+	if dbDriver == "" {
+		fmt.Println("Define db driver on env")
+		os.Exit(1)
+		return
+	}
+	if dbCred == "" {
+		fmt.Println("Define db cred on env")
+		os.Exit(1)
+		return
+	}
+	if template == "" {
+		fmt.Println("Define template on env")
+		os.Exit(1)
+		return
+	}
+}
+
+func prepare() {
+	prepare()
+	os.MkdirAll("result", os.ModePerm)
+	cmd := `bee generate appcode -tables="` + *tableName + `" -driver=` + dbDriver + ` -conn="` + dbCred + `" -level=1`
+	exec.Command(
+		"sh",
+		"-c",
+		cmd).Output()
+	time.Sleep(2 * time.Second)
+}
+
+func convertToDBStruct() (table []Table) {
+	tableSplit := strings.Split(*tableName, ",")
+	for i := 0; i < len(tableSplit); i++ {
+		var tableTemp Table
+		tableTemp.Name = tableSplit[i]
+		modelByte, err := ioutil.ReadFile("models/" + tableSplit[i] + ".go")
+		if err != nil {
+			checkErr(err)
+			log.Fatal("error read file")
+			return
+		}
+		modelString := stringBetween(string(modelByte), "struct {\n", "\n}")
+		modelField := strings.Split(modelString, "\n")
+		var dbField []DBField
+		for j := 0; j < len(modelField); j++ {
+			dbField = append(dbField, convertStringToDBFieldStruct(modelField[j]))
+		}
+		tableTemp.Field = dbField
+		table = append(table, tableTemp)
+	}
+	return
+}
+
 func convertStringToDBFieldStruct(modelField string) (dbFieldTemp DBField) {
 	modelField = standardizeSpaces(modelField)
 	modelFieldProps := strings.Split(modelField, " ")
@@ -227,3 +194,100 @@ func convertStringToDBFieldStruct(modelField string) (dbFieldTemp DBField) {
 	}
 	return dbFieldTemp
 }
+
+func getFormString(dbField DBField) (formString string) {
+	var formArrByte []byte
+	if dbField.DataType == "string" {
+		// length only supported in mysql
+		if dbField.Length > 50 {
+			// text area
+			formArrByte, err = ioutil.ReadFile("templates/" + template + "/form_textarea.html")
+		} else {
+			// usual textfield
+			formArrByte, err = ioutil.ReadFile("templates/" + template + "/form_text.html")
+		}
+	}
+	// else if dbField.DataType == "int" {
+	// 	// number input
+	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form_number.html")
+	// } else if dbField.DataType == "time.Time" {
+	// 	// date time with timezone
+	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form_datetimetz.html")
+	// } else if dbField.DataType == "bool" {
+	// 	// checkbox
+	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form_bool.html")
+	// }
+	if err != nil {
+		checkErr(err)
+		log.Fatal("Form Template not found")
+		return
+	}
+	formString = string(formArrByte)
+	return
+}
+
+func generateJSFile(
+	tableName,
+	bindOnChangeString string,
+	defaultStateString string,
+	funcOnChangeString string,
+	fieldString string,
+	formString string,
+) {
+	// Create JS
+	addFileContent, err := ioutil.ReadFile("templates/" + template + "/js/add")
+	if err != nil {
+		checkErr(err)
+	}
+	addFileContentString := string(addFileContent)
+	addFileContentString = strings.Replace(addFileContentString, "[bindOnChangeString]", bindOnChangeString, -1)
+	addFileContentString = strings.Replace(addFileContentString, "[defaultStateString]", defaultStateString, -1)
+	addFileContentString = strings.Replace(addFileContentString, "[funcOnChangeString]", funcOnChangeString, -1)
+	addFileContentString = strings.Replace(addFileContentString, "[fieldString]", fieldString, -1)
+	addFileContentString = strings.Replace(addFileContentString, "[formString]", formString, -1)
+
+	// write form
+	f, err := os.Create("result/" + tableName + "/add.js")
+	if err != nil {
+		log.Fatal("error create file", err)
+		return
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	_, err = w.WriteString(addFileContentString)
+	if err != nil {
+		log.Fatal("error write to add.js", err)
+		return
+	}
+	w.Flush()
+}
+
+func generateJSString(dbField DBField) (
+	bindOnChangeString string,
+	defaultStateString string,
+	funcOnChangeString string,
+	fieldString string,
+	formString string,
+) {
+	// Create JS
+	bindOnChangeString += "this.onChange" +
+		strcase.ToCamel(dbField.Name) + " = this.onChange" +
+		strcase.ToCamel(dbField.Name) + ".bind(this);\n"
+
+	defaultStateString += "" + dbField.Name + ":'',\n"
+
+	funcOnChangeString += "onChange" + strcase.ToCamel(dbField.Name) + "(e){\n" +
+		"this.setState({\n" +
+		dbField.Name + ":e.target.value\n" +
+		"});\n" +
+		"}\n\n"
+
+	fieldString = dbField.Name + ": this.state." + dbField.Name + ",\n"
+
+	formString = getFormString(dbField)
+	formString = strings.Replace(formString, "[field]", dbField.Name, -1)
+	formString = strings.Replace(formString, "[fieldCamel]", strcase.ToCamel(dbField.Name), -1)
+	return
+}
+
+// CORE FUNC
