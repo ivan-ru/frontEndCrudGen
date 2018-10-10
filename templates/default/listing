@@ -1,0 +1,70 @@
+import React, { Component } from 'react';
+import axios from 'axios';
+import {Link} from 'react-router-dom';
+
+export default class Listing extends Component {
+    constructor(){
+        super();
+        this.state={
+            kategori:[]
+        }
+    }
+
+    componentDidMount(){
+        axios.get('http://localhost:8000/api/kategori')
+        .then(response=>{
+            this.setState({kategori:response.data});
+        })
+    }
+
+    onDelete(kategori_id){
+        axios.delete('http://localhost:8000/api/kategori/delete/'+kategori_id)
+        .then(response=>{
+            var kategori = this.state.kategori;
+            for(var i=0; i<kategori.length; i++){
+                if(kategori[i].id==kategori_id){
+                    kategori.splice(i,1);
+                    this.setState({kategori:kategori});
+                }
+            }
+        })
+    }
+
+    render() {
+        return (
+            <div>
+                <table className="table">
+                    <thead>
+                        <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Kategori</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Created At</th>
+                        <th scope="col">Update At</th>
+                        <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {
+                            this.state.kategori.map(kategori=>{
+                                return(
+                                <tr>
+                                    <th scope="row">1</th>
+                                    <td>{kategori.name}</td>
+                                    <td>{kategori.active==1?'Active':'Inactive'}</td>
+                                    <td>{kategori.created_at}</td>
+                                    <td>{kategori.updated_at}</td>
+                                    <td>
+                                        <Link to={`/kategori/edit/${kategori.id}`}>Bangsat</Link>
+                                        <a href="#" onClick={this.onDelete.bind(this, kategori.id)}>Delete</a>
+                                    </td>
+                                </tr>
+                                )
+                            })
+                        }
+                    </tbody>
+                </table>
+            </div>
+        );
+    }
+}

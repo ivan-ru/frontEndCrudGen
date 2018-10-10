@@ -1,0 +1,69 @@
+import React, { Component } from 'react';
+import Axios from 'axios';
+import SuccessAlert from './SuccessAlert';
+import ErrorAlert from './ErrorAlert';
+
+export default class Edit extends Component {
+    constructor(props){
+        super(props);
+        this.onChangeKategoriName = this.onChangeKategoriName.bind(this);
+        this.onSubmit = this.onSubmit.bind(this);
+
+        this.state = {
+            kategori_name:'',
+            alert_message:''
+        }
+    }
+
+    componentDidMount(){
+        axios.get('http://localhost:8000/api/kategori/edit/'+this.props.match.params.id)
+        .then(response=>{
+            this.setState({kategori_name:response.data.name});
+        })
+    }
+
+    onChangeKategoriName(e){
+        this.setState({
+            kategori_name:e.target.value
+        });
+    }
+
+    onSubmit(e){
+        e.preventDefault();
+        const kategori = {
+            kategori_name : this.state.kategori_name
+        }
+
+        Axios.put('http://localhost:8000/api/kategori/update/'+this.props.match.params.id, kategori)
+        .then(res=>{
+            this.setState({alert_message:"success"});
+        }).catch(error=>{
+            this.setState({alert_message:"error"});
+        });
+    }
+
+    render() {
+        return (
+            <div>
+            <hr />
+            
+            {this.state.alert_message=="success"?<SuccessAlert/>:null}
+            {this.state.alert_message=="error"?<ErrorAlert/>:null}
+
+            <form onSubmit={this.onSubmit}>
+                <div class="form-group">
+                    <label for="kategori">Kategori</label>
+                    <input type="text" 
+                        className="form-control" 
+                        id="kategori_name" 
+                        placeholder="Enter kategori"
+                        value={this.state.kategori_name}
+                        onChange={this.onChangeKategoriName}
+                    />
+                </div>
+                <button type="submit" className="btn btn-primary">Submit</button>
+                </form>
+            </div>
+        );
+    }
+}
