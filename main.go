@@ -229,21 +229,21 @@ func getFormString(dbField DBField) (formString string) {
 		// length only supported in mysql
 		if dbField.Length > 50 {
 			// text area
-			formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_textarea.html")
+			formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_textarea")
 		} else {
 			// usual textfield
-			formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_text.html")
+			formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_text")
 		}
 	}
 	// else if dbField.DataType == "int" {
 	// 	// number input
-	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_number.html")
+	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_number")
 	// } else if dbField.DataType == "time.Time" {
 	// 	// date time with timezone
-	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_datetimetz.html")
+	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_datetimetz")
 	// } else if dbField.DataType == "bool" {
 	// 	// checkbox
-	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_bool.html")
+	// 	formArrByte, err = ioutil.ReadFile("templates/" + template + "/form/form_bool")
 	// }
 	if err != nil {
 		checkErr(err)
@@ -397,7 +397,7 @@ func generateJSString(dbField DBField) (
 
 	defaultStateString = "" + dbField.Name + ":'',\n\t\t\t"
 
-	setStateString = "this.setState({" + dbField.Name + ":response.data.name});\n\t\t\t"
+	setStateString = "this.setState({" + dbField.Name + ":response.data." + dbField.Name + "});\n\t\t\t"
 
 	funcOnChangeString = "\tonChange" + strcase.ToCamel(dbField.Name) + "(e){\n\t\t" +
 		"this.setState({\n\t\t\t" +
