@@ -411,8 +411,8 @@ func generateJSString(dbField DBField) (
 	formString = strings.Replace(formString, "[field]", dbField.Name, -1)
 	formString = strings.Replace(formString, "[fieldCamel]", strcase.ToCamel(dbField.Name), -1)
 
-	tableColumnString = "<th scope=\"col\">[field]</th>\n\t\t\t\t\t\t"
-	tableRowString = "<td>{[table].[field]}</td>\n\t\t\t\t\t\t\t\t\t"
+	tableColumnString = "<th scope=\"col\">" + dbField.Name + "</th>\n\t\t\t\t\t\t"
+	tableRowString = "<td>{[table]." + dbField.Name + "}</td>\n\t\t\t\t\t\t\t\t\t"
 	return
 }
 

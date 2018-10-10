@@ -7,6 +7,6 @@
                         id="[field]"
                         value={this.state.[field]}
                         onChange={this.onChange[fieldCamel]}
-                        placeholder="Enter kategori"
+                        placeholder="Enter [field]"
                     />
                 </div>
