@@ -1,0 +1,12 @@
+                <div class="form-group">
+                    <label for="[field]">[field]</label>
+                    <input 
+                        type="text"
+                        className="form-control"
+                        name="[field]"
+                        id="[field]"
+                        value={this.state.[field]}
+                        onChange={this.onChange[fieldCamel]}
+                        placeholder="Enter kategori"
+                    />
+                </div>

@@ -6,35 +6,30 @@ import ErrorAlert from './ErrorAlert';
 export default class Edit extends Component {
     constructor(props){
         super(props);
-        this.onChangeKategoriName = this.onChangeKategoriName.bind(this);
+        [bindOnChangeString]
         this.onSubmit = this.onSubmit.bind(this);
 
         this.state = {
-            kategori_name:'',
-            alert_message:''
+            [defaultStateString]
         }
     }
 
     componentDidMount(){
-        axios.get('http://localhost:8000/api/kategori/edit/'+this.props.match.params.id)
+        axios.get('http://localhost:8000/api/[table]/edit/'+this.props.match.params.id)
         .then(response=>{
-            this.setState({kategori_name:response.data.name});
+            [setStateString]
         })
     }
 
-    onChangeKategoriName(e){
-        this.setState({
-            kategori_name:e.target.value
-        });
-    }
+    [funcOnChangeString]
 
     onSubmit(e){
         e.preventDefault();
-        const kategori = {
-            kategori_name : this.state.kategori_name
+        const fields = {
+            [fieldString]
         }
 
-        Axios.put('http://localhost:8000/api/kategori/update/'+this.props.match.params.id, kategori)
+        Axios.put('http://localhost:8000/api/[table]/update/'+this.props.match.params.id, fields)
         .then(res=>{
             this.setState({alert_message:"success"});
         }).catch(error=>{
@@ -51,16 +46,7 @@ export default class Edit extends Component {
             {this.state.alert_message=="error"?<ErrorAlert/>:null}
 
             <form onSubmit={this.onSubmit}>
-                <div class="form-group">
-                    <label for="kategori">Kategori</label>
-                    <input type="text" 
-                        className="form-control" 
-                        id="kategori_name" 
-                        placeholder="Enter kategori"
-                        value={this.state.kategori_name}
-                        onChange={this.onChangeKategoriName}
-                    />
-                </div>
+                [formString]
                 <button type="submit" className="btn btn-primary">Submit</button>
                 </form>
             </div>

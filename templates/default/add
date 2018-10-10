@@ -22,7 +22,7 @@ export default class Add extends Component {
             [fieldString]
         }
 
-        Axios.post('http://localhost:8000/api/kategori/store', fields)
+        Axios.post('http://localhost:8000/api/[table]/store', fields)
         .then(res=>{
             this.setState({alert_message:"success"});
         }).catch(error=>{

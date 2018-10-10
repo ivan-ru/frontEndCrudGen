@@ -6,25 +6,25 @@ export default class Listing extends Component {
     constructor(){
         super();
         this.state={
-            kategori:[]
+            [table]:[]
         }
     }
 
     componentDidMount(){
-        axios.get('http://localhost:8000/api/kategori')
+        axios.get('http://localhost:8000/api/[table]')
         .then(response=>{
-            this.setState({kategori:response.data});
+            this.setState({[table]:response.data});
         })
     }
 
-    onDelete(kategori_id){
-        axios.delete('http://localhost:8000/api/kategori/delete/'+kategori_id)
+    onDelete(delete_by){
+        axios.delete('http://localhost:8000/api/[table]/delete/'+delete_by)
         .then(response=>{
-            var kategori = this.state.kategori;
-            for(var i=0; i<kategori.length; i++){
-                if(kategori[i].id==kategori_id){
-                    kategori.splice(i,1);
-                    this.setState({kategori:kategori});
+            var [table] = this.state.[table];
+            for(var i=0; i<[table].length; i++){
+                if([table][i].id==delete_by){
+                    [table].splice(i,1);
+                    this.setState({[table]:[table]});
                 }
             }
         })
@@ -37,26 +37,20 @@ export default class Listing extends Component {
                     <thead>
                         <tr>
                         <th scope="col">#</th>
-                        <th scope="col">Kategori</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Created At</th>
-                        <th scope="col">Update At</th>
+                        [tableColumnString]
                         <th scope="col">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {
-                            this.state.kategori.map(kategori=>{
+                            this.state.[table].map([table]=>{
                                 return(
                                 <tr>
                                     <th scope="row">1</th>
-                                    <td>{kategori.name}</td>
-                                    <td>{kategori.active==1?'Active':'Inactive'}</td>
-                                    <td>{kategori.created_at}</td>
-                                    <td>{kategori.updated_at}</td>
+                                    [tableRowString]
                                     <td>
-                                        <Link to={`/kategori/edit/${kategori.id}`}>Bangsat</Link>
-                                        <a href="#" onClick={this.onDelete.bind(this, kategori.id)}>Delete</a>
+                                        <Link to={`/[table]/edit/${[table].id}`}>Edit</Link>
+                                        <a href="#" onClick={this.onDelete.bind(this, [table].id)}>Delete</a>
                                     </td>
                                 </tr>
                                 )
