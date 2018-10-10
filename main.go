@@ -34,6 +34,7 @@ var (
 	table     []Table
 	dbDriver  string
 	dbCred    string
+	template  string
 )
 
 func init() {
@@ -55,18 +56,24 @@ func check() {
 		return
 	}
 	if dbDriver == "" {
-		fmt.Println("Define db driver")
+		fmt.Println("Define db driver on env")
 		os.Exit(1)
 		return
 	}
 	if dbCred == "" {
-		fmt.Println("Define db cred")
+		fmt.Println("Define db cred on env")
+		os.Exit(1)
+		return
+	}
+	if template == "" {
+		fmt.Println("Define template on env")
 		os.Exit(1)
 		return
 	}
 }
 
 func main() {
+	os.MkdirAll("result", os.ModePerm)
 	cmd := `bee generate appcode -tables="` + *tableName + `" -driver=` + dbDriver + ` -conn="` + dbCred + `" -level=1`
 	exec.Command(
 		"sh",
@@ -80,26 +87,13 @@ func main() {
 		modelByte, err := ioutil.ReadFile("models/" + tableSplit[i] + ".go")
 		if err != nil {
 			checkErr(err)
+			return
 		}
 		modelString := stringBetween(string(modelByte), "struct {\n", "\n}")
 		modelField := strings.Split(modelString, "\n")
 		var dbField []DBField
 		for j := 0; j < len(modelField); j++ {
-			var dbFieldTemp DBField
-			modelField[j] = standardizeSpaces(modelField[j])
-			modelFieldProps := strings.Split(modelField[j], " ")
-			dbFieldTemp.DataType = modelFieldProps[1]
-
-			ormString := strings.Replace(strings.Replace(modelFieldProps[2], "`orm:\"", "", -1), "\"`", "", -1)
-			ormSplit := strings.Split(ormString, ";")
-			for k := 0; k < len(ormSplit); k++ {
-				if strings.Contains(ormSplit[k], "column") {
-					dbFieldTemp.Name = strings.Replace(strings.Replace(ormSplit[k], "column(", "", -1), ")", "", -1)
-				} else if strings.Contains(ormSplit[k], "size") {
-					dbFieldTemp.Length, _ = strconv.Atoi(strings.Replace(strings.Replace(ormSplit[k], "size(", "", -1), ")", "", -1))
-				}
-			}
-			dbField = append(dbField, dbFieldTemp)
+			dbField = append(dbField, convertStringToDBFieldStruct(modelField[j]))
 		}
 		tableTemp.Field = dbField
 		table = append(table, tableTemp)
@@ -182,6 +176,12 @@ func main() {
 		}
 		w.Flush()
 	}
+
+	// delete model dir after generation
+	exec.Command(
+		"sh",
+		"-c",
+		"rm -rf models/").Output()
 }
 
 func checkErr(err error) {
@@ -209,4 +209,21 @@ func stringBetween(value string, a string, b string) string {
 
 func standardizeSpaces(s string) string {
 	return strings.Join(strings.Fields(s), " ")
+}
+
+func convertStringToDBFieldStruct(modelField string) (dbFieldTemp DBField) {
+	modelField = standardizeSpaces(modelField)
+	modelFieldProps := strings.Split(modelField, " ")
+	dbFieldTemp.DataType = modelFieldProps[1]
+
+	ormString := strings.Replace(strings.Replace(modelFieldProps[2], "`orm:\"", "", -1), "\"`", "", -1)
+	ormSplit := strings.Split(ormString, ";")
+	for k := 0; k < len(ormSplit); k++ {
+		if strings.Contains(ormSplit[k], "column") {
+			dbFieldTemp.Name = strings.Replace(strings.Replace(ormSplit[k], "column(", "", -1), ")", "", -1)
+		} else if strings.Contains(ormSplit[k], "size") {
+			dbFieldTemp.Length, _ = strconv.Atoi(strings.Replace(strings.Replace(ormSplit[k], "size(", "", -1), ")", "", -1))
+		}
+	}
+	return dbFieldTemp
 }
