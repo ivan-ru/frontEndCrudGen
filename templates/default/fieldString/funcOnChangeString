@@ -1,5 +1,6 @@
-  onChange[Field](e){
-    this.setState({
-      [field]:e.target.value
+    onChange[Field](e){
+      this.setState({
+          [field]:e.target.value
 		});
-  }
+    }
+    

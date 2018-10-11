@@ -36,8 +36,8 @@ var (
 	dbCred           string
 	template         string
 	err              error
-	pageStringConfig map[string][]string
-	inputfieldString map[string]string
+	pageStringConfig = make(map[string][]string)
+	inputfieldString = make(map[string]string)
 )
 
 func init() {
@@ -75,7 +75,7 @@ func main() {
 
 	// loop through inputted table
 	for l := 0; l < len(table); l++ {
-		var finalJSString map[string]string
+		finalJSString := make(map[string]string)
 
 		// loop through fields to generate needed things in js file
 		for n := 0; n < len(table[l].Field); n++ {
@@ -190,6 +190,7 @@ func convertToDBStruct() (table []Table) {
 }
 
 func convertFieldStringConfToStruct() (pageStringConf map[string][]string) {
+	pageStringConfTemp := make(map[string][]string)
 	// set fieldStringConfig in a map
 	fieldStringConfMap, err := ioutil.ReadFile("templates/" + template + "/fieldString/conf/map")
 	if err != nil {
@@ -203,12 +204,14 @@ func convertFieldStringConfToStruct() (pageStringConf map[string][]string) {
 	for i := 0; i < len(fieldStringConfMapArr); i++ {
 		pageConfSplit := strings.Split(fieldStringConfMapArr[i], "=")
 		pageConfArr := strings.Split(pageConfSplit[1], ",")
-		pageStringConf[pageConfSplit[0]] = pageConfArr
+		pageStringConfTemp[pageConfSplit[0]] = pageConfArr
 	}
+	pageStringConf = pageStringConfTemp
 	return
 }
 
 func getAllFieldString() (inputfieldStr map[string]string) {
+	inputfieldStrTemp := make(map[string]string)
 	files, err := ioutil.ReadDir("templates/default/fieldString")
 	if err != nil {
 		log.Fatal(err)
@@ -222,8 +225,9 @@ func getAllFieldString() (inputfieldStr map[string]string) {
 		if err != nil {
 			checkErr(err)
 		}
-		inputfieldStr[f.Name()] = string(fieldStringFromFile)
+		inputfieldStrTemp[f.Name()] = string(fieldStringFromFile)
 	}
+	inputfieldStr = inputfieldStrTemp
 	return
 }
 
