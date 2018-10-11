@@ -1,0 +1,2 @@
+this.setState({[field]:response.data.[field]});
+      

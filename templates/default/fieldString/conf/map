@@ -1,0 +1,3 @@
+Add=bindOnChangeString,defaultStateString,funcOnChangeString,fieldString,formString
+Edit=bindOnChangeString,defaultStateString,setStateString,funcOnChangeString,fieldString,formString
+Listing=tableColumnString,tableRowString

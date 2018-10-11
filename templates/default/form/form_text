@@ -6,7 +6,7 @@
                         name="[field]"
                         id="[field]"
                         value={this.state.[field]}
-                        onChange={this.onChange[fieldCamel]}
+                        onChange={this.onChange[Field]}
                         placeholder="Enter [field]"
                     />
                 </div>

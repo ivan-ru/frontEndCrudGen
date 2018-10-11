@@ -1,0 +1,5 @@
+  onChange[Field](e){
+    this.setState({
+      [field]:e.target.value
+		});
+  }

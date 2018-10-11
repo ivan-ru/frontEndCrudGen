@@ -30,12 +30,14 @@ type DBField struct {
 }
 
 var (
-	tableName = flag.String("table", "", "Table Name")
-	table     []Table
-	dbDriver  string
-	dbCred    string
-	template  string
-	err       error
+	tableName        = flag.String("table", "", "Table Name")
+	table            []Table
+	dbDriver         string
+	dbCred           string
+	template         string
+	err              error
+	pageStringConfig map[string][]string
+	inputfieldString map[string]string
 )
 
 func init() {
@@ -59,6 +61,12 @@ func main() {
 	// convert process to table and dbfield struct
 	table = convertToDBStruct()
 
+	// convertFieldStringConfToStruct
+	pageStringConfig = convertFieldStringConfToStruct()
+
+	// getAllFieldString
+	inputfieldString = getAllFieldString()
+
 	// delete temporary models dir after generation
 	exec.Command(
 		"sh",
@@ -67,49 +75,24 @@ func main() {
 
 	// loop through inputted table
 	for l := 0; l < len(table); l++ {
-		var (
-			bindOnChangeString string
-			defaultStateString string
-			setStateString     string
-			funcOnChangeString string
-			fieldString        string
-			formString         string
-			tableColumnString  string
-			tableRowString     string
-		)
+		var finalJSString map[string]string
 
 		// loop through fields to generate needed things in js file
 		for n := 0; n < len(table[l].Field); n++ {
-			bindOnChangeStringTemp,
-				defaultStateStringTemp,
-				setStateStringTemp,
-				funcOnChangeStringTemp,
-				fieldStringTemp,
-				formStringTemp,
-				tableColumnStringTemp,
-				tableRowStringTemp := generateJSString(table[l].Field[n])
-			bindOnChangeString += bindOnChangeStringTemp
-			defaultStateString += defaultStateStringTemp
-			setStateString += setStateStringTemp
-			funcOnChangeString += funcOnChangeStringTemp
-			fieldString += fieldStringTemp
-			formString += formStringTemp
-			tableColumnString += tableColumnStringTemp
-			tableRowString += tableRowStringTemp
+			JSString := generateJSString(table[l].Field[n])
+			for index, el := range JSString {
+				finalJSString[index] += el
+			}
 		}
-		defaultStateString += "alert_message:''"
+		finalJSString["defaultStateString"] += "alert_message:''"
+		for index, el := range finalJSString {
+			finalJSString[index] = strings.TrimSpace(el)
+		}
 
 		// write JS file
 		generateJSFile(
 			table[l].Name,
-			strings.TrimSpace(bindOnChangeString),
-			strings.TrimSpace(defaultStateString),
-			strings.TrimSpace(setStateString),
-			strings.TrimSpace(funcOnChangeString),
-			strings.TrimSpace(fieldString),
-			strings.TrimSpace(formString),
-			strings.TrimSpace(tableColumnString),
-			strings.TrimSpace(tableRowString),
+			finalJSString,
 		)
 	}
 }
@@ -206,6 +189,44 @@ func convertToDBStruct() (table []Table) {
 	return
 }
 
+func convertFieldStringConfToStruct() (pageStringConf map[string][]string) {
+	// set fieldStringConfig in a map
+	fieldStringConfMap, err := ioutil.ReadFile("templates/" + template + "/fieldString/conf/map")
+	if err != nil {
+		log.Fatal("error read file fieldstring mapconfig", err)
+		return
+	}
+	fieldStringConfMapString := string(fieldStringConfMap)
+	fieldStringConfMapArr := strings.Split(fieldStringConfMapString, "\n")
+
+	// loop through pages config
+	for i := 0; i < len(fieldStringConfMapArr); i++ {
+		pageConfSplit := strings.Split(fieldStringConfMapArr[i], "=")
+		pageConfArr := strings.Split(pageConfSplit[1], ",")
+		pageStringConf[pageConfSplit[0]] = pageConfArr
+	}
+	return
+}
+
+func getAllFieldString() (inputfieldStr map[string]string) {
+	files, err := ioutil.ReadDir("templates/default/fieldString")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		fieldStringFromFile, err := ioutil.ReadFile("templates/" + template + "/fieldString/" + f.Name())
+		if err != nil {
+			checkErr(err)
+		}
+		inputfieldStr[f.Name()] = string(fieldStringFromFile)
+	}
+	return
+}
+
 func convertStringToDBFieldStruct(modelField string) (dbFieldTemp DBField) {
 	modelField = standardizeSpaces(modelField)
 	modelFieldProps := strings.Split(modelField, " ")
@@ -255,164 +276,189 @@ func getFormString(dbField DBField) (formString string) {
 }
 
 func generateJSFile(
-	tableName,
-	bindOnChangeString string,
-	defaultStateString string,
-	setStateString string,
-	funcOnChangeString string,
-	fieldString string,
-	formString string,
-	tableColumnString string,
-	tableRowString string,
+	tableName string,
+	JSString map[string]string,
 ) {
-	// Create JS
-	addFileContent, err := ioutil.ReadFile("templates/" + template + "/Add")
+	// // Read from Pages Template
+	// addFileContent, err := ioutil.ReadFile("templates/" + template + "/Add")
+	// if err != nil {
+	// 	checkErr(err)
+	// }
+	// addFileContentString := string(addFileContent)
+
+	// editFileContent, err := ioutil.ReadFile("templates/" + template + "/Edit")
+	// if err != nil {
+	// 	checkErr(err)
+	// }
+	// editFileContentString := string(editFileContent)
+
+	// indexFileContent, err := ioutil.ReadFile("templates/" + template + "/Index")
+	// if err != nil {
+	// 	checkErr(err)
+	// }
+	// indexFileContentString := string(indexFileContent)
+
+	// listingFileContent, err := ioutil.ReadFile("templates/" + template + "/Listing")
+	// if err != nil {
+	// 	checkErr(err)
+	// }
+	// listingFileContentString := string(listingFileContent)
+
+	pageFiles, err := ioutil.ReadDir("templates/" + template + "/page")
 	if err != nil {
-		checkErr(err)
+		log.Fatal(err)
 	}
 
-	editFileContent, err := ioutil.ReadFile("templates/" + template + "/Edit")
-	if err != nil {
-		checkErr(err)
+	for _, f := range pageFiles {
+		fileContent, err := ioutil.ReadFile("templates/" + template + "/page/" + f.Name())
+		if err != nil {
+			checkErr(err)
+		}
+		fileContentString := string(fileContent)
+		for _, el := range pageStringConfig[f.Name()] {
+			fileContentString = strings.Replace(fileContentString, "["+el+"]", JSString[el], -1)
+		}
+		fileContentString = strings.Replace(fileContentString, "[table]", tableName, -1)
+
+		os.MkdirAll("result/"+tableName, os.ModePerm)
+		f, err := os.Create("result/" + tableName + "/" + f.Name() + ".js")
+		if err != nil {
+			log.Fatal("error create file", err)
+			return
+		}
+		defer f.Close()
+		w := bufio.NewWriter(f)
+		_, err = w.WriteString(fileContentString)
+		if err != nil {
+			log.Fatal("error write to "+f.Name()+".js", err)
+			return
+		}
+		w.Flush()
 	}
 
-	indexFileContent, err := ioutil.ReadFile("templates/" + template + "/Index")
-	if err != nil {
-		checkErr(err)
-	}
+	// // add
+	// addFileContentString = strings.Replace(addFileContentString, "[bindOnChangeString]", bindOnChangeString, -1)
+	// addFileContentString = strings.Replace(addFileContentString, "[defaultStateString]", defaultStateString, -1)
+	// addFileContentString = strings.Replace(addFileContentString, "[funcOnChangeString]", funcOnChangeString, -1)
+	// addFileContentString = strings.Replace(addFileContentString, "[fieldString]", fieldString, -1)
+	// addFileContentString = strings.Replace(addFileContentString, "[formString]", formString, -1)
 
-	listingFileContent, err := ioutil.ReadFile("templates/" + template + "/Listing")
-	if err != nil {
-		checkErr(err)
-	}
+	// // edit
+	// editFileContentString = strings.Replace(editFileContentString, "[bindOnChangeString]", bindOnChangeString, -1)
+	// editFileContentString = strings.Replace(editFileContentString, "[defaultStateString]", defaultStateString, -1)
+	// editFileContentString = strings.Replace(editFileContentString, "[setStateString]", setStateString, -1)
+	// editFileContentString = strings.Replace(editFileContentString, "[funcOnChangeString]", funcOnChangeString, -1)
+	// editFileContentString = strings.Replace(editFileContentString, "[fieldString]", fieldString, -1)
+	// editFileContentString = strings.Replace(editFileContentString, "[formString]", formString, -1)
 
-	// add
-	addFileContentString := string(addFileContent)
-	addFileContentString = strings.Replace(addFileContentString, "[bindOnChangeString]", bindOnChangeString, -1)
-	addFileContentString = strings.Replace(addFileContentString, "[defaultStateString]", defaultStateString, -1)
-	addFileContentString = strings.Replace(addFileContentString, "[funcOnChangeString]", funcOnChangeString, -1)
-	addFileContentString = strings.Replace(addFileContentString, "[fieldString]", fieldString, -1)
-	addFileContentString = strings.Replace(addFileContentString, "[formString]", formString, -1)
-	addFileContentString = strings.Replace(addFileContentString, "[table]", tableName, -1)
+	// // listing
+	// listingFileContentString = strings.Replace(listingFileContentString, "[tableColumnString]", tableColumnString, -1)
+	// listingFileContentString = strings.Replace(listingFileContentString, "[tableRowString]", tableRowString, -1)
 
-	// edit
-	editFileContentString := string(editFileContent)
-	editFileContentString = strings.Replace(editFileContentString, "[bindOnChangeString]", bindOnChangeString, -1)
-	editFileContentString = strings.Replace(editFileContentString, "[defaultStateString]", defaultStateString, -1)
-	editFileContentString = strings.Replace(editFileContentString, "[setStateString]", setStateString, -1)
-	editFileContentString = strings.Replace(editFileContentString, "[funcOnChangeString]", funcOnChangeString, -1)
-	editFileContentString = strings.Replace(editFileContentString, "[fieldString]", fieldString, -1)
-	editFileContentString = strings.Replace(editFileContentString, "[formString]", formString, -1)
-	editFileContentString = strings.Replace(editFileContentString, "[table]", tableName, -1)
-
-	// index
-	indexFileContentString := string(indexFileContent)
-	indexFileContentString = strings.Replace(indexFileContentString, "[table]", tableName, -1)
-
-	// listing
-	listingFileContentString := string(listingFileContent)
-	listingFileContentString = strings.Replace(listingFileContentString, "[tableColumnString]", tableColumnString, -1)
-	listingFileContentString = strings.Replace(listingFileContentString, "[tableRowString]", tableRowString, -1)
-	listingFileContentString = strings.Replace(listingFileContentString, "[table]", tableName, -1)
+	// addFileContentString = strings.Replace(addFileContentString, "[table]", tableName, -1)
+	// editFileContentString = strings.Replace(editFileContentString, "[table]", tableName, -1)
+	// indexFileContentString = strings.Replace(indexFileContentString, "[table]", tableName, -1)
+	// listingFileContentString = strings.Replace(listingFileContentString, "[table]", tableName, -1)
 
 	// write Add.js
-	os.MkdirAll("result/"+tableName, os.ModePerm)
-	fAdd, err := os.Create("result/" + tableName + "/Add.js")
-	if err != nil {
-		log.Fatal("error create file", err)
-		return
-	}
-	defer fAdd.Close()
-	wAdd := bufio.NewWriter(fAdd)
-	_, err = wAdd.WriteString(addFileContentString)
-	if err != nil {
-		log.Fatal("error write to Add.js", err)
-		return
-	}
-	wAdd.Flush()
+	// os.MkdirAll("result/"+tableName, os.ModePerm)
+	// fAdd, err := os.Create("result/" + tableName + "/Add.js")
+	// if err != nil {
+	// 	log.Fatal("error create file", err)
+	// 	return
+	// }
+	// defer fAdd.Close()
+	// wAdd := bufio.NewWriter(fAdd)
+	// _, err = wAdd.WriteString(addFileContentString)
+	// if err != nil {
+	// 	log.Fatal("error write to Add.js", err)
+	// 	return
+	// }
+	// wAdd.Flush()
 
-	// write Edit.js
-	os.MkdirAll("result/"+tableName, os.ModePerm)
-	fEdit, err := os.Create("result/" + tableName + "/Edit.js")
-	if err != nil {
-		log.Fatal("error create file", err)
-		return
-	}
-	defer fEdit.Close()
-	wEdit := bufio.NewWriter(fEdit)
-	_, err = wEdit.WriteString(editFileContentString)
-	if err != nil {
-		log.Fatal("error write to Edit.js", err)
-		return
-	}
-	wEdit.Flush()
+	// // write Edit.js
+	// os.MkdirAll("result/"+tableName, os.ModePerm)
+	// fEdit, err := os.Create("result/" + tableName + "/Edit.js")
+	// if err != nil {
+	// 	log.Fatal("error create file", err)
+	// 	return
+	// }
+	// defer fEdit.Close()
+	// wEdit := bufio.NewWriter(fEdit)
+	// _, err = wEdit.WriteString(editFileContentString)
+	// if err != nil {
+	// 	log.Fatal("error write to Edit.js", err)
+	// 	return
+	// }
+	// wEdit.Flush()
 
-	// write Index.js
-	os.MkdirAll("result/"+tableName, os.ModePerm)
-	fIndex, err := os.Create("result/" + tableName + "/Index.js")
-	if err != nil {
-		log.Fatal("error create file", err)
-		return
-	}
-	defer fIndex.Close()
-	wIndex := bufio.NewWriter(fIndex)
-	_, err = wIndex.WriteString(indexFileContentString)
-	if err != nil {
-		log.Fatal("error write to Index.js", err)
-		return
-	}
-	wIndex.Flush()
+	// // write Index.js
+	// os.MkdirAll("result/"+tableName, os.ModePerm)
+	// fIndex, err := os.Create("result/" + tableName + "/Index.js")
+	// if err != nil {
+	// 	log.Fatal("error create file", err)
+	// 	return
+	// }
+	// defer fIndex.Close()
+	// wIndex := bufio.NewWriter(fIndex)
+	// _, err = wIndex.WriteString(indexFileContentString)
+	// if err != nil {
+	// 	log.Fatal("error write to Index.js", err)
+	// 	return
+	// }
+	// wIndex.Flush()
 
-	// write Listing.js
-	os.MkdirAll("result/"+tableName, os.ModePerm)
-	fListing, err := os.Create("result/" + tableName + "/Listing.js")
-	if err != nil {
-		log.Fatal("error create file", err)
-		return
-	}
-	defer fListing.Close()
-	wListing := bufio.NewWriter(fListing)
-	_, err = wListing.WriteString(listingFileContentString)
-	if err != nil {
-		log.Fatal("error write to Listing.js", err)
-		return
-	}
-	wListing.Flush()
+	// // write Listing.js
+	// os.MkdirAll("result/"+tableName, os.ModePerm)
+	// fListing, err := os.Create("result/" + tableName + "/Listing.js")
+	// if err != nil {
+	// 	log.Fatal("error create file", err)
+	// 	return
+	// }
+	// defer fListing.Close()
+	// wListing := bufio.NewWriter(fListing)
+	// _, err = wListing.WriteString(listingFileContentString)
+	// if err != nil {
+	// 	log.Fatal("error write to Listing.js", err)
+	// 	return
+	// }
+	// wListing.Flush()
 }
 
 func generateJSString(dbField DBField) (
-	bindOnChangeString string,
-	defaultStateString string,
-	setStateString string,
-	funcOnChangeString string,
-	fieldString string,
-	formString string,
-	tableColumnString string,
-	tableRowString string,
+	JSString map[string]string,
 ) {
-	// Create JS
-	bindOnChangeString = "this.onChange" +
-		strcase.ToCamel(dbField.Name) + " = this.onChange" +
-		strcase.ToCamel(dbField.Name) + ".bind(this);\n\t\t"
+	JSString = inputfieldString
+	for index, element := range JSString {
+		if index == "formString" {
+			JSString[index] = getFormString(dbField)
+		}
+		JSString[index] = strings.Replace(element, "[field]", dbField.Name, -1)
+		JSString[index] = strings.Replace(JSString[index], "[Field]", strcase.ToCamel(dbField.Name), -1)
+	}
 
-	defaultStateString = "" + dbField.Name + ":'',\n\t\t\t"
+	// bindOnChangeString = "this.onChange" +
+	// 	strcase.ToCamel(dbField.Name) + " = this.onChange" +
+	// 	strcase.ToCamel(dbField.Name) + ".bind(this);\n\t\t"
 
-	setStateString = "this.setState({" + dbField.Name + ":response.data." + dbField.Name + "});\n\t\t\t"
+	// defaultStateString = "" + dbField.Name + ":'',\n\t\t\t"
 
-	funcOnChangeString = "\tonChange" + strcase.ToCamel(dbField.Name) + "(e){\n\t\t" +
-		"this.setState({\n\t\t\t" +
-		dbField.Name + ":e.target.value\n\t\t" +
-		"});\n\t" +
-		"}\n"
+	// setStateString = "this.setState({" + dbField.Name + ":response.data." + dbField.Name + "});\n\t\t\t"
 
-	fieldString = dbField.Name + ": this.state." + dbField.Name + ",\n\t\t\t"
+	// funcOnChangeString = "\tonChange" + strcase.ToCamel(dbField.Name) + "(e){\n\t\t" +
+	// 	"this.setState({\n\t\t\t" +
+	// 	dbField.Name + ":e.target.value\n\t\t" +
+	// 	"});\n\t" +
+	// 	"}\n"
 
-	formString = getFormString(dbField)
-	formString = strings.Replace(formString, "[field]", dbField.Name, -1)
-	formString = strings.Replace(formString, "[fieldCamel]", strcase.ToCamel(dbField.Name), -1)
+	// fieldString = dbField.Name + ": this.state." + dbField.Name + ",\n\t\t\t"
 
-	tableColumnString = "<th scope=\"col\">" + dbField.Name + "</th>\n\t\t\t\t\t\t"
-	tableRowString = "<td>{[table]." + dbField.Name + "}</td>\n\t\t\t\t\t\t\t\t\t"
+	// formString = getFormString(dbField)
+	// formString = strings.Replace(formString, "[field]", dbField.Name, -1)
+	// formString = strings.Replace(formString, "[Field]", strcase.ToCamel(dbField.Name), -1)
+
+	// tableColumnString = "<th scope=\"col\">" + dbField.Name + "</th>\n\t\t\t\t\t\t"
+	// tableRowString = "<td>{[table]." + dbField.Name + "}</td>\n\t\t\t\t\t\t\t\t\t"
 	return
 }
 
