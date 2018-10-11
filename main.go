@@ -80,6 +80,7 @@ func main() {
 		// loop through fields to generate needed things in js file
 		for n := 0; n < len(table[l].Field); n++ {
 			JSString := generateJSString(table[l].Field[n])
+			fmt.Println(JSString)
 			for index, el := range JSString {
 				finalJSString[index] += el
 			}
@@ -432,12 +433,16 @@ func generateJSFile(
 func generateJSString(dbField DBField) (
 	JSString map[string]string,
 ) {
-	JSString = inputfieldString
-	for index, element := range JSString {
+	inputfieldStringDuplicate := make(map[string]string)
+	for k, v := range inputfieldString {
+		inputfieldStringDuplicate[k] = v
+	}
+	JSString = inputfieldStringDuplicate
+	for index := range JSString {
 		if index == "formString" {
 			JSString[index] = getFormString(dbField)
 		}
-		JSString[index] = strings.Replace(element, "[field]", dbField.Name, -1)
+		JSString[index] = strings.Replace(JSString[index], "[field]", dbField.Name, -1)
 		JSString[index] = strings.Replace(JSString[index], "[Field]", strcase.ToCamel(dbField.Name), -1)
 	}
 
